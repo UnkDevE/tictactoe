@@ -30,3 +30,10 @@ diagonalProg n size c =
 
 diagonal :: Int -> Char -> String
 diagonal n c = diagonalProg n n c
+
+verticalProg :: Int -> Int -> Int -> Char -> String
+verticalProg n size 0 c = []
+verticalProg n size size1 c = (take (n-1) $ repeat ' ') ++ [c] ++ 
+    (take (size-n) $ repeat ' ') ++ verticalProg n size (size1-1) c
+
+vertical n size c = verticalProg n size size c
