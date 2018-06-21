@@ -1,4 +1,7 @@
-module TicTacToe ()
+module TicTacToe (
+    makeEmptyGrid,
+    gameLoop
+)
 where
 
 import qualified Data.Map as Map
@@ -7,7 +10,7 @@ import Data.Maybe
 makeEmptyListGrid :: Int -> Int -> [Map.Map Int Char]
 makeEmptyListGrid 0 rows = []
 makeEmptyListGrid cols rows = 
-    [Map.fromList $ zip [1..] $ take rows $ repeat ' '] ++ makeEmptyListGrid (cols-1) rows
+    [Map.fromList $ zip [1..] $ take rows $ repeat '.'] ++ makeEmptyListGrid (cols-1) rows
 
 makeEmptyGrid :: Int -> Map.Map Int (Map.Map Int Char)
 makeEmptyGrid size = Map.fromList $ zip [1..] $ makeEmptyListGrid size size
@@ -25,7 +28,7 @@ flatten map = snd $ unzip $ flattenHelper $ Map.toList map
 diagonalProg :: Int -> Int -> Char -> String
 diagonalProg 0 size c = []
 diagonalProg n size c = 
-    (take (size-n) $ repeat ' ') ++ [c] ++ (take (n-1) $ repeat ' ') ++ 
+    (take (size-n) $ repeat '.') ++ [c] ++ (take (n-1) $ repeat '.') ++ 
         diagonalProg (n-1) size c
 
 diagonal :: Int -> Char -> String
@@ -33,18 +36,18 @@ diagonal n c = diagonalProg n n c
 
 verticalProg :: Int -> Int -> Int -> Char -> String
 verticalProg n size 0 c = []
-verticalProg n size size1 c = (take (n-1) $ repeat ' ') ++ [c] ++ 
-    (take (size-n) $ repeat ' ') ++ verticalProg n size (size1-1) c
+verticalProg n size size1 c = (take (n-1) $ repeat '.') ++ [c] ++ 
+    (take (size-n) $ repeat '.') ++ verticalProg n size (size1-1) c
 
 vertical :: Int -> Int -> Char -> String
 vertical n size c = verticalProg n size size c
 
-blanks :: Int -> Int -> String
-blanks rows 0 = []
-blanks rows cols = (take rows $ repeat ' ') ++ blanks rows (cols-1)
+dots :: Int -> Int -> String
+dots rows 0 = []
+dots rows cols = (take rows $ repeat '.') ++ dots rows (cols-1)
 
 horizontal :: Int -> Int -> Char -> String
-horizontal n size c = blanks size (size-n) ++ (take size $ repeat c) ++ blanks size (n-1)
+horizontal n size c = dots size (size-n) ++ (take size $ repeat c) ++ dots size (n-1)
 
 -- assumes grid is square 
 sizeOfGrid :: Map.Map Int (Map.Map Int Char) -> Int
@@ -76,9 +79,12 @@ compareVertical flatgrid c size = compareVerticalProg flatgrid c size size
 gridSize :: Map.Map Int (Map.Map Int Char) -> Int
 gridSize grid = length $ Map.toList grid
 
+replaceExcept :: String -> Char -> String
+replaceExcept str char = map ((\char c -> if c /= char then '.'; else c) char) str
+
 isWinner :: Map.Map Int (Map.Map Int Char) -> Char -> Bool
 isWinner grid char = 
-    let flatgrid = flatten grid
+    let flatgrid = replaceExcept (flatten grid) char 
         size = gridSize grid
     in compareDiagonal flatgrid char size 
         || compareHorizontal flatgrid char size
@@ -106,6 +112,7 @@ turn grid char = do
 
 gameLoop :: Map.Map Int (Map.Map Int Char) -> IO()
 gameLoop grid 
+    | isWinner grid 'x' && isWinner grid 'o' = do putStrLn "draw."
     | isWinner grid 'x' = do putStrLn "x is winner."
     | isWinner grid 'o' = do putStrLn "o is winner."
     | otherwise = do
