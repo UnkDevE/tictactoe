@@ -6,6 +6,7 @@ where
 
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.List (elemIndices)
 
 makeEmptyListGrid :: Int -> Int -> [Map.Map Int Char]
 makeEmptyListGrid 0 rows = []
@@ -25,29 +26,42 @@ flattenHelper (x:xs) = Map.toList (snd x) ++ flattenHelper xs
 flatten :: Map.Map Int (Map.Map Int a) -> [a]
 flatten map = snd $ unzip $ flattenHelper $ Map.toList map
 
-diagonalProg :: Int -> Int -> Char -> String
-diagonalProg 0 size c = []
-diagonalProg n size c = 
-    (take (size-n) $ repeat '.') ++ [c] ++ (take (n-1) $ repeat '.') ++ 
-        diagonalProg (n-1) size c
+diagonalPartialProg :: Int -> Int -> Int -> Char -> String
+diagonalPartialProg 0 size parts c = []
+diagonalPartialProg n size parts c = 
+    (take (size-n) $ repeat '.') ++ [char] ++ (take (n-1) $ repeat '.') ++ 
+        diagonalPartialProg (n-1) size (parts-1) c
+    where char = if parts > 0 then c; else '.'
+
+diagonalPartial :: Int -> Int -> Char -> String
+diagonalPartial n parts c = diagonalPartialProg n n parts c
 
 diagonal :: Int -> Char -> String
-diagonal n c = diagonalProg n n c
+diagonal n c = diagonalPartial n n c
 
-verticalProg :: Int -> Int -> Int -> Char -> String
-verticalProg n size 0 c = []
-verticalProg n size size1 c = (take (n-1) $ repeat '.') ++ [c] ++ 
-    (take (size-n) $ repeat '.') ++ verticalProg n size (size1-1) c
+verticalPartialProg :: Int -> Int -> Int -> Int -> Char -> String
+verticalPartialProg n size 0 parts c = []
+verticalPartialProg n size size1 parts c = (take (n-1) $ repeat '.') ++ [char] ++ 
+        (take (size-n) $ repeat '.') ++ verticalPartialProg n size (size1-1) (parts-1) c
+        where char = if parts > 0 then c; else '.'
+
+verticalPartial :: Int -> Int -> Int -> Char -> String
+verticalPartial n size parts c = verticalPartialProg n size size parts c
 
 vertical :: Int -> Int -> Char -> String
-vertical n size c = verticalProg n size size c
+vertical n size = verticalPartial n size size
 
 dots :: Int -> Int -> String
 dots rows 0 = []
 dots rows cols = (take rows $ repeat '.') ++ dots rows (cols-1)
 
+horizontalPartial :: Int -> Int -> Int -> Char -> String
+horizontalPartial n size parts c = 
+    dots size (size-n) ++ (take parts $ repeat c) ++ 
+        (take (size - parts) $ repeat '.') ++ dots size (n-1)
+
 horizontal :: Int -> Int -> Char -> String
-horizontal n size c = dots size (size-n) ++ (take size $ repeat c) ++ dots size (n-1)
+horizontal n size = horizontalPartial n size size
 
 -- assumes grid is square 
 sizeOfGrid :: Map.Map Int (Map.Map Int Char) -> Int
@@ -124,8 +138,22 @@ gameLoop grid
         filledgrid <- turn g 'o'
         gameLoop filledgrid
 
+getGridPos :: Int -> Int -> (Int, Int)
+getGridPos size index = 
+    (index `rem` size, ceiling((fromIntegral index)/(fromIntegral size)))
+
+getGridPosOfChar :: String -> Int -> Char -> [(Int, Int)]
+getGridPosOfChar flatgrid size c = map (getGridPos size) $ elemIndices c flatgrid
+
+differenceStrs :: String -> String -> Char -> String
+differenceStrs str1 str2 c = 
+    zipWith (\x y -> if x /= y || x /= '.' then c else '.') str1 str2
+
 {-
 block :: Map.Map Int (Map.Map Int Char) -> Char -> [(Int, Int)]
 block grid char
-    | length $ filter (==char) flatgrid > 1 = 
+    | length $ filter (==char) flatgrid > (size-2) =  
+    | otherwise =
+    where flatgrid = replaceExcept (flatten grid) char
+          size = sizeOfGrid grid
 -}
