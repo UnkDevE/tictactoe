@@ -53,17 +53,20 @@ horizontal n size c = dots size (size-n) ++ (take size $ repeat c) ++ dots size 
 sizeOfGrid :: Map.Map Int (Map.Map Int Char) -> Int
 sizeOfGrid grid = length $ Map.toList grid
 
+patternMatch :: String -> String -> Bool
+patternMatch [] [] = True
+patternMatch (x:xs) (y:ys) = 
+    (x == y || x == '.') && patternMatch xs ys 
+
 compareDiagonal :: String -> Char -> Int -> Bool
-compareDiagonal flatgrid c size
-    | flatgrid == diag = True
-    | flatgrid == reverse diag = True
-    | otherwise = False
+compareDiagonal flatgrid c size = 
+    patternMatch diag flatgrid || patternMatch (reverse diag) flatgrid 
     where diag = diagonal size c
 
 compareHorizontalProg :: String -> Char -> Int -> Int -> Bool
 compareHorizontalProg flatgrid c size 0 = False
 compareHorizontalProg flatgrid c size n = 
-    (horizontal n size c == flatgrid) || compareHorizontalProg flatgrid c size (n-1)
+    patternMatch (horizontal n size c) flatgrid || compareHorizontalProg flatgrid c size (n-1)
 
 compareHorizontal :: String -> Char -> Int -> Bool
 compareHorizontal flatgrid c size = compareHorizontalProg flatgrid c size size
@@ -71,7 +74,7 @@ compareHorizontal flatgrid c size = compareHorizontalProg flatgrid c size size
 compareVerticalProg :: String -> Char -> Int -> Int -> Bool
 compareVerticalProg flatgrid c size 0 = False
 compareVerticalProg flatgrid c size n = 
-    (vertical n size c == flatgrid) || compareVerticalProg flatgrid c size (n-1)
+    patternMatch (vertical n size c) flatgrid || compareVerticalProg flatgrid c size (n-1)
 
 compareVertical :: String -> Char -> Int -> Bool
 compareVertical flatgrid c size = compareVerticalProg flatgrid c size size
@@ -120,4 +123,9 @@ gameLoop grid
         g <- turn grid 'x'
         filledgrid <- turn g 'o'
         gameLoop filledgrid
-        
+
+{-
+block :: Map.Map Int (Map.Map Int Char) -> Char -> [(Int, Int)]
+block grid char
+    | length $ filter (==char) flatgrid > 1 = 
+-}
