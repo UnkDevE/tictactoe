@@ -149,6 +149,19 @@ differenceStrs :: String -> String -> Char -> String
 differenceStrs str1 str2 c = 
     zipWith (\x y -> if x /= y || x /= '.' then c else '.') str1 str2
 
+findDiagonalPartialProg :: String -> Int -> Int -> Char -> [String]
+findDiagonalPartialProg str 0 size c = []
+findDiagonalPartialProg str n size c
+    | patternMatch (diagonalPartial size n c) str = 
+        str:findDiagonalPartialProg str (n-1) size c
+    | otherwise = findDiagonalPartialProg str (n-1) size c
+
+findDiagonalPartial :: String -> Int -> Char -> Maybe String
+findDiagonalPartial str size char
+    | items == [] = Nothing
+    | otherwise = Just $last items 
+    where items = findDiagonalPartialProg str size size char
+
 {-
 block :: Map.Map Int (Map.Map Int Char) -> Char -> [(Int, Int)]
 block grid char
