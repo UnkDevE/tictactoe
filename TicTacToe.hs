@@ -63,10 +63,6 @@ horizontalPartial n size parts c =
 horizontal :: Int -> Int -> Char -> String
 horizontal n size = horizontalPartial n size size
 
--- assumes grid is square 
-sizeOfGrid :: Map.Map Int (Map.Map Int Char) -> Int
-sizeOfGrid grid = length $ Map.toList grid
-
 patternMatch :: String -> String -> Bool
 patternMatch [] [] = True
 patternMatch (x:xs) (y:ys) = 
@@ -225,11 +221,32 @@ findAllPartials str size c =
     findVerticalPartials str size c ++ findHorizontalPartials str size c ++
         findDiagonalPartials str size c 
 
-{-
-block :: Map.Map Int (Map.Map Int Char) -> Char -> [(Int, Int)]
+getPartialString :: Partial -> Int -> Char -> String 
+getPartialString Partial{direction = Horizontal, parts = p, reversed = r, n = num} size c = 
+    horizontalPartial (fromJust num) size p c
+getPartialString Partial{direction = Vertical, parts = p, reversed = r, n = num} size c = 
+    verticalPartial (fromJust num) size p c
+getPartialString Partial{direction = Diagonal, parts = p, reversed = r, n = num} size c = 
+    diagonalPartial size p c
+
+getNextPartialString :: Partial -> Int -> Char -> String
+getNextPartialString Partial{direction = dir, parts = p, reversed = r, n = num} 
+    = getPartialString Partial{direction = dir, parts = (p+1), reversed = r, n = num}
+
+getNextPosition :: Int -> Char -> Partial -> (Int, Int)
+getNextPosition size c partial = 
+    head $ getGridPosOfChar 
+        (differenceStrs (getNextPartialString partial size c) (getPartialString partial size c) c)
+        size c
+
+get2ndPartials :: Int -> [Partial] -> [Partial]
+get2ndPartials size = filter (\x -> parts x == (size-1)) 
+
+block :: Map.Map Int (Map.Map Int Char) -> Char -> (Int, Int)
 block grid char
-    | length $ filter (==char) flatgrid > (size-2) =  
-    | otherwise =
+    | length(filter (==char) flatgrid) > (size-2) = 
+        head $ map (getNextPosition size char) 
+            $ get2ndPartials size $ findAllPartials flatgrid size char
+    | otherwise = head $ map (getNextPosition size char) $ findAllPartials flatgrid size char
     where flatgrid = replaceExcept (flatten grid) char
-          size = sizeOfGrid grid
--}
+          size = gridSize grid
