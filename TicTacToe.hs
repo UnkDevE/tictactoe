@@ -149,61 +149,82 @@ differenceStrs :: String -> String -> Char -> String
 differenceStrs str1 str2 c = 
     zipWith (\x y -> if x /= y || x /= '.' then c else '.') str1 str2
 
-findaDiagonalPartialProg :: String -> Int -> Int -> Char -> [String]
+data Direction = Vertical | Horizontal | Diagonal
+    deriving(Enum, Eq, Show)
+
+data Partial = Partial {
+    direction :: Direction,
+    parts :: Int,
+    reversed :: Bool,
+    n :: Maybe Int
+}   deriving (Eq, Show)
+
+findaDiagonalPartialProg :: String -> Int -> Int -> Char -> [Partial]
 findaDiagonalPartialProg str 0 size c = []
 findaDiagonalPartialProg str parts size c
     | patternMatch (diagonalPartial size parts c) str = 
-        str:findaDiagonalPartialProg str (parts-1) size c
+        Partial{direction = Diagonal, parts = parts, reversed = False, n = Nothing}:
+            findaDiagonalPartialProg str (parts-1) size c
     | otherwise = findaDiagonalPartialProg str (parts-1) size c
 
-findaDiagonalPartial :: String -> Int -> Char -> Maybe String
+findaDiagonalPartial :: String -> Int -> Char -> Maybe Partial
 findaDiagonalPartial str size char
     | items == [] = Nothing
-    | otherwise = Just $last items 
+    | otherwise = Just $head items 
     where items = findaDiagonalPartialProg str size size char
 
-findDiagonalPartials :: String -> Int -> Char -> [String]
-findDiagonalPartials str size char = 
-    (maybeToList $ findaDiagonalPartial str size char) ++
-       [reverse $ fromJust $ findaDiagonalPartial (reverse str) size char]
+findDiagonalPartials :: String -> Int -> Char -> [Partial]
+findDiagonalPartials str size char
+    | reversePartial /= [] = 
+        (maybeToList $ findaDiagonalPartial str size char) ++
+            [Partial{
+                direction = Diagonal, 
+                parts = parts $ head reversePartial, 
+                reversed = True, 
+                n = Nothing
+            }]
+    | otherwise = (maybeToList $ findaDiagonalPartial str size char)
+    where reversePartial = maybeToList $ findaDiagonalPartial (reverse str) size char
 
 findaPartialProg :: (Int -> Int -> Int -> Char -> String) -> 
-    String -> Int -> Int -> Int -> Char -> [String]
-findaPartialProg partialf str 0 n size c = []
-findaPartialProg partialf str parts n size c
+    String -> Int -> Int -> Int -> Char -> Direction -> [Partial]
+findaPartialProg partialf str 0 n size c dir = []
+findaPartialProg partialf str parts n size c dir
     | patternMatch (partialf n size parts c) str = 
-        str:findaPartialProg partialf str (parts - 1) n size c
-    | otherwise = findaPartialProg partialf str (parts - 1) n size c
+        Partial{direction = dir, parts = parts, reversed = False, n = Just n}:
+            findaPartialProg partialf str (parts - 1) n size c dir 
+    | otherwise = findaPartialProg partialf str (parts - 1) n size c dir 
 
 findaPartial :: (Int -> Int -> Int -> Char -> String) ->
-    String -> Int -> Int -> Char -> Maybe String
-findaPartial partialf str n size c
+    String -> Int -> Int -> Char -> Direction -> Maybe Partial
+findaPartial partialf str n size c dir
     | items == [] = Nothing
-    | otherwise = Just $last items
-    where items = findaPartialProg partialf str size n size c
+    | otherwise = Just $head items
+    where items = findaPartialProg partialf str size n size c dir
 
 findPartialsProg :: (Int -> Int -> Int -> Char -> String) -> 
-    String -> Int -> Int -> Char -> [String]
-findPartialsProg partialf str size 0 c = []
-findPartialsProg partialf str size n c = 
-    (maybeToList $ findaPartial partialf str n size c) ++ 
-        findPartialsProg partialf str size (n-1) c
+    String -> Int -> Int -> Char -> Direction -> [Partial]
+findPartialsProg partialf str size 0 c dir = []
+findPartialsProg partialf str size n c dir = 
+    (maybeToList $ findaPartial partialf str n size c dir) ++ 
+        findPartialsProg partialf str size (n-1) c dir
 
 findPartials :: (Int -> Int -> Int -> Char -> String) ->
-    String -> Int -> Char -> [String]
-findPartials partialf str size c = 
-    findPartialsProg partialf str size size c
+    String -> Int -> Char -> Direction -> [Partial]
+findPartials partialf str size c dir = 
+    findPartialsProg partialf str size size c dir
 
-findVerticalPartials :: String -> Int -> Char -> [String]
-findVerticalPartials str size c = findPartials verticalPartial str size c
+findVerticalPartials :: String -> Int -> Char -> [Partial]
+findVerticalPartials str size c = findPartials verticalPartial str size c Vertical
 
-findHorizontalPartials :: String -> Int -> Char -> [String]
-findHorizontalPartials str size c = findPartials horizontalPartial str size c
+findHorizontalPartials :: String -> Int -> Char -> [Partial]
+findHorizontalPartials str size c = findPartials horizontalPartial str size c Horizontal
 
-findAllPartials :: String -> Int -> Char -> [String]
+findAllPartials :: String -> Int -> Char -> [Partial]
 findAllPartials str size c = 
     findVerticalPartials str size c ++ findHorizontalPartials str size c ++
         findDiagonalPartials str size c 
+
 {-
 block :: Map.Map Int (Map.Map Int Char) -> Char -> [(Int, Int)]
 block grid char
