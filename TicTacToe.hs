@@ -1,6 +1,7 @@
 module TicTacToe (
     makeEmptyGrid,
-    gameLoop
+    gameLoop,
+    gameAILoop
 )
 where
 
@@ -379,3 +380,16 @@ block grid char
     | otherwise = head $ map (getNextPosition size char) $ findAllPartials flatgrid size char
     where flatgrid = replaceExcept (flatten grid) char
           size = gridSize grid
+
+gameAILoop :: Map.Map Int (Map.Map Int Char) -> IO()
+gameAILoop grid
+    | isWinner grid 'x' && isWinner grid 'o' = do putStrLn "draw."
+    | isWinner grid 'x' = do putStrLn "x is winner."
+    | isWinner grid 'o' = do putStrLn "o is winner."
+    | otherwise = do
+        printGrid grid
+        g <- turn grid 'x'
+        let loc = block g 'x'
+        let filledgrid = insertToGrid (fst loc) (snd loc) 'o' g
+        gameAILoop filledgrid
+    
