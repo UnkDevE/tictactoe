@@ -26,18 +26,22 @@ flattenHelper (x:xs) = Map.toList (snd x) ++ flattenHelper xs
 flatten :: Map.Map Int (Map.Map Int a) -> [a]
 flatten map = snd $ unzip $ flattenHelper $ Map.toList map
 
-diagonalPartialProg :: Int -> Int -> Int -> Char -> String
-diagonalPartialProg 0 size parts c = []
-diagonalPartialProg n size parts c = 
+diagonalPartialProg :: Int -> Int -> Int -> Bool -> Char -> String
+diagonalPartialProg 0 size parts reverse c = []
+diagonalPartialProg n size parts False c =
     (take (size-n) $ repeat '.') ++ [char] ++ (take (n-1) $ repeat '.') ++ 
-        diagonalPartialProg (n-1) size (parts-1) c
+        diagonalPartialProg (n-1) size (parts-1) False c
+    where char = if parts > 0 then c; else '.'
+diagonalPartialProg n size parts True c =
+     (take (n-1) $ repeat '.') ++ [char] ++ (take (size-n) $ repeat '.') ++ 
+        diagonalPartialProg (n-1) size (parts-1) True c
     where char = if parts > 0 then c; else '.'
 
-diagonalPartial :: Int -> Int -> Char -> String
-diagonalPartial n parts c = diagonalPartialProg n n parts c
+diagonalPartial :: Bool -> Int -> Int -> Char -> String
+diagonalPartial rev n parts c = diagonalPartialProg n n parts rev c
 
-diagonal :: Int -> Char -> String
-diagonal n c = diagonalPartial n n c
+diagonal :: Bool -> Int -> Char -> String
+diagonal rev n c = diagonalPartial rev n n c
 
 verticalPartialProg :: Int -> Int -> Int -> Int -> Char -> String
 verticalPartialProg n size 0 parts c = []
@@ -70,8 +74,7 @@ patternMatch (x:xs) (y:ys) =
 
 compareDiagonal :: String -> Char -> Int -> Bool
 compareDiagonal flatgrid c size = 
-    patternMatch diag flatgrid || patternMatch (reverse diag) flatgrid 
-    where diag = diagonal size c
+    patternMatch (diagonal True size c) flatgrid || patternMatch (diagonal False size c) flatgrid 
 
 compareHorizontalProg :: String -> Char -> Int -> Int -> Bool
 compareHorizontalProg flatgrid c size 0 = False
@@ -134,16 +137,22 @@ gameLoop grid
         filledgrid <- turn g 'o'
         gameLoop filledgrid
 
+specialRem :: Int -> Int -> Int 
+specialRem size index
+    | r == 0 = size
+    | otherwise = r
+    where r = index `rem` size 
+
 getGridPos :: Int -> Int -> (Int, Int)
 getGridPos size index = 
-    (index `rem` size, ceiling((fromIntegral index)/(fromIntegral size)))
+    (index `specialRem` size, ceiling((fromIntegral index)/(fromIntegral size)))
 
 getGridPosOfChar :: String -> Int -> Char -> [(Int, Int)]
-getGridPosOfChar flatgrid size c = map (getGridPos size) $ elemIndices c flatgrid
+getGridPosOfChar flatgrid size c = map (getGridPos size) $ map (\x -> x + 1) (elemIndices c flatgrid)
 
 differenceStrs :: String -> String -> Char -> String
 differenceStrs str1 str2 c = 
-    zipWith (\x y -> if x /= y || x /= '.' then c else '.') str1 str2
+    zipWith (\x y -> if x /= y && x /= '.' then c else '.') str1 str2
 
 data Direction = Vertical | Horizontal | Diagonal
     deriving(Enum, Eq, Show)
@@ -152,15 +161,29 @@ data Partial = Partial {
     direction :: Direction,
     parts :: Int,
     reversed :: Bool,
+    dreversed :: Bool,
     n :: Maybe Int
 }   deriving (Eq, Show)
 
 findaDiagonalPartialProg :: String -> Int -> Int -> Char -> [Partial]
 findaDiagonalPartialProg str 0 size c = []
 findaDiagonalPartialProg str parts size c
-    | patternMatch (diagonalPartial size parts c) str = 
-        Partial{direction = Diagonal, parts = parts, reversed = False, n = Nothing}:
-            findaDiagonalPartialProg str (parts-1) size c
+    | patternMatch (diagonalPartial False size parts c) str = 
+         Partial{
+             direction = Diagonal, 
+             parts = parts, 
+             dreversed = False, 
+             reversed = False, 
+             n = Nothing
+             }:findaDiagonalPartialProg str (parts-1) size c
+    | patternMatch (diagonalPartial True size parts c) str = 
+        Partial{
+            direction = Diagonal, 
+            parts = parts, 
+            dreversed = True, 
+            reversed = False, 
+            n = Nothing
+            }:findaDiagonalPartialProg str (parts-1) size c
     | otherwise = findaDiagonalPartialProg str (parts-1) size c
 
 findaDiagonalPartial :: String -> Int -> Char -> Maybe Partial
@@ -176,6 +199,7 @@ findDiagonalPartials str size char
             [Partial{
                 direction = Diagonal, 
                 parts = parts $ head reversePartial, 
+                dreversed = dreversed $ head reversePartial,
                 reversed = True, 
                 n = Nothing
             }]
@@ -187,8 +211,13 @@ findaPartialProg :: (Int -> Int -> Int -> Char -> String) ->
 findaPartialProg partialf str 0 n size c dir = []
 findaPartialProg partialf str parts n size c dir
     | patternMatch (partialf n size parts c) str = 
-        Partial{direction = dir, parts = parts, reversed = False, n = Just n}:
-            findaPartialProg partialf str (parts - 1) n size c dir 
+        Partial{
+        direction = dir, 
+        parts = parts, 
+        reversed = False, 
+        dreversed = False,
+        n = Just n
+        }:findaPartialProg partialf str (parts - 1) n size c dir 
     | otherwise = findaPartialProg partialf str (parts - 1) n size c dir 
 
 findaPartial :: (Int -> Int -> Int -> Char -> String) ->
@@ -222,20 +251,22 @@ findAllPartials str size c =
         findDiagonalPartials str size c 
 
 getPartialString :: Partial -> Int -> Char -> String 
-getPartialString Partial{direction = Horizontal, parts = p, reversed = r, n = num} size c = 
+getPartialString Partial{direction = Horizontal, parts = p, reversed = False, dreversed = d, n = num} size c = 
     horizontalPartial (fromJust num) size p c
-getPartialString Partial{direction = Vertical, parts = p, reversed = r, n = num} size c = 
+getPartialString Partial{direction = Vertical, parts = p, reversed = False, dreversed = d, n = num} size c = 
     verticalPartial (fromJust num) size p c
-getPartialString Partial{direction = Diagonal, parts = p, reversed = r, n = num} size c = 
-    diagonalPartial size p c
+getPartialString Partial{direction = Diagonal, parts = p, reversed = False, dreversed = d, n = num} size c = 
+    diagonalPartial d size p c
+getPartialString Partial{direction = dir, parts = p, reversed = True, dreversed = d, n = num} size c =
+    reverse $ getPartialString Partial{direction = dir, parts = p, reversed = False, dreversed = d, n = num} size c
 
 getNextPartialString :: Partial -> Int -> Char -> String
-getNextPartialString Partial{direction = dir, parts = p, reversed = r, n = num} 
-    = getPartialString Partial{direction = dir, parts = (p+1), reversed = r, n = num}
+getNextPartialString Partial{direction = dir, parts = p, reversed = r, dreversed = d, n = num} 
+    = getPartialString Partial{direction = dir, parts = (p+1), reversed = r, dreversed = d, n = num}
 
 getNextPosition :: Int -> Char -> Partial -> (Int, Int)
 getNextPosition size c partial = 
-    head $ getGridPosOfChar 
+    last $ getGridPosOfChar 
         (differenceStrs (getNextPartialString partial size c) (getPartialString partial size c) c)
         size c
 
