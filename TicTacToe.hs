@@ -41,7 +41,23 @@ diagonalPartial :: Bool -> Int -> Int -> Char -> String
 diagonalPartial rev n parts c = diagonalPartialProg n n parts rev c
 
 diagonal :: Bool -> Int -> Char -> String
-diagonal rev n c = diagonalPartial rev n n c
+diagonal rev size c = diagonalPartial rev size size c
+
+diagonalMiddleProg :: Bool -> Int -> Int -> Char -> String
+diagonalMiddleProg rev size 0 c = []
+diagonalMiddleProg False size n c =
+    (take (size-n) $ repeat '.') ++ [char] ++ (take (n-1) $ repeat '.') ++ 
+        diagonalMiddleProg False size (n-1) c
+    where char = if ceiling(fromIntegral size/2) == n then '.'; else c 
+diagonalMiddleProg True size n c =
+    (take (n-1) $ repeat '.') ++ [char] ++ (take (size-n) $ repeat '.') ++ 
+        diagonalMiddleProg True size (n-1) c
+    where char = if ceiling(fromIntegral size/2) == n then '.'; else c 
+
+diagonalMiddle :: Bool -> Int -> Char -> Maybe String
+diagonalMiddle rev size c
+    | even size = Nothing
+    | otherwise = Just(diagonalMiddleProg rev size size c)
 
 verticalPartialProg :: Int -> Int -> Int -> Int -> Char -> String
 verticalPartialProg n size 0 parts c = []
@@ -55,6 +71,15 @@ verticalPartial n size parts c = verticalPartialProg n size size parts c
 vertical :: Int -> Int -> Char -> String
 vertical n size = verticalPartial n size size
 
+verticalMiddleProg :: Int -> Int -> Int -> Char -> String
+verticalMiddleProg n size 0 c = []
+verticalMiddleProg n size size1 c = (take (n-1) $ repeat '.') ++ [char] ++
+        (take (size-n) $ repeat '.') ++ verticalMiddleProg n size (size1-1) c
+        where char = if ceiling(fromIntegral size/2) == size1 then '.'; else c 
+
+verticalMiddle :: Int -> Int -> Char -> String
+verticalMiddle n size c = verticalMiddleProg n size size c
+
 dots :: Int -> Int -> String
 dots rows 0 = []
 dots rows cols = (take rows $ repeat '.') ++ dots rows (cols-1)
@@ -66,6 +91,11 @@ horizontalPartial n size parts c =
 
 horizontal :: Int -> Int -> Char -> String
 horizontal n size = horizontalPartial n size size
+
+horizontalMiddle :: Int -> Int -> Char -> String
+horizontalMiddle n size c = 
+    dots size (size-n) ++ (take (size `div` 2) $ repeat c) ++ 
+        ['.'] ++ (take (size `div` 2) $ repeat c) ++ dots size (n-1)
 
 patternMatch :: String -> String -> Bool
 patternMatch [] [] = True
@@ -138,7 +168,7 @@ gameLoop grid
         gameLoop filledgrid
 
 specialRem :: Int -> Int -> Int 
-specialRem size index
+specialRem index size
     | r == 0 = size
     | otherwise = r
     where r = index `rem` size 
@@ -166,7 +196,25 @@ data Partial = Partial {
 }   deriving (Eq, Show)
 
 findaDiagonalPartialProg :: String -> Int -> Int -> Char -> [Partial]
-findaDiagonalPartialProg str 0 size c = []
+findaDiagonalPartialProg str 0 size c  
+    | even size = []
+    | patternMatch (fromJust $ diagonalMiddle False size c) str = 
+        Partial{
+            direction = Diagonal,
+            parts = 0,
+            dreversed = False,
+            reversed = False,
+            n = Nothing
+            }:[]
+    | patternMatch (fromJust $ diagonalMiddle True size c) str = 
+        Partial{
+            direction = Diagonal,
+            parts = 0,
+            dreversed = True,
+            reversed = False,
+            n = Nothing
+            }:[]
+    | otherwise = []
 findaDiagonalPartialProg str parts size c
     | patternMatch (diagonalPartial False size parts c) str = 
          Partial{
@@ -186,9 +234,13 @@ findaDiagonalPartialProg str parts size c
             }:findaDiagonalPartialProg str (parts-1) size c
     | otherwise = findaDiagonalPartialProg str (parts-1) size c
 
+findMiddles :: [Partial] -> [Partial]
+findMiddles = filter ((== 0) . parts)
+
 findaDiagonalPartial :: String -> Int -> Char -> Maybe Partial
 findaDiagonalPartial str size char
     | items == [] = Nothing
+    | (findMiddles items) /= [] = Just $ head $ findMiddles items
     | otherwise = Just $head items 
     where items = findaDiagonalPartialProg str size size char
 
@@ -207,9 +259,28 @@ findDiagonalPartials str size char
     where reversePartial = maybeToList $ findaDiagonalPartial (reverse str) size char
 
 findaPartialProg :: (Int -> Int -> Int -> Char -> String) -> 
+    (Int -> Int -> Char -> String) ->
     String -> Int -> Int -> Int -> Char -> Direction -> [Partial]
-findaPartialProg partialf str 0 n size c dir = []
-findaPartialProg partialf str parts n size c dir
+findaPartialProg partialf middlef str 0 n size c dir  
+    | even size = []
+    | patternMatch (middlef n size c) str =
+        Partial{
+            direction = dir,
+            parts = 0,
+            reversed = False,
+            dreversed = False,
+            n = Just n
+        }:[]
+    | patternMatch (middlef n size c) str =
+        Partial{
+            direction = dir,
+            parts = 0,
+            reversed = False,
+            dreversed = False,
+            n = Just n
+        }:[]
+    | otherwise = []
+findaPartialProg partialf middlef str parts n size c dir
     | patternMatch (partialf n size parts c) str = 
         Partial{
         direction = dir, 
@@ -217,33 +288,52 @@ findaPartialProg partialf str parts n size c dir
         reversed = False, 
         dreversed = False,
         n = Just n
-        }:findaPartialProg partialf str (parts - 1) n size c dir 
-    | otherwise = findaPartialProg partialf str (parts - 1) n size c dir 
+        }:findaPartialProg partialf middlef str (parts - 1) n size c dir
+    | patternMatch (partialf n size parts c) $ reverse str =
+        Partial{
+            direction = dir,
+            parts = parts,
+            reversed = True,
+            dreversed = False,
+            n = Just n
+        }:findaPartialProg partialf middlef str (parts - 1) n size c dir
+    | otherwise = findaPartialProg partialf middlef str (parts - 1) n size c dir 
 
 findaPartial :: (Int -> Int -> Int -> Char -> String) ->
+    (Int -> Int -> Char -> String) ->
     String -> Int -> Int -> Char -> Direction -> Maybe Partial
-findaPartial partialf str n size c dir
+findaPartial partialf middlef str n size c dir
     | items == [] = Nothing
+    | (findMiddles items) /= [] = Just $head $ findMiddles items
     | otherwise = Just $head items
-    where items = findaPartialProg partialf str size n size c dir
+    where items = findaPartialProg partialf middlef str size n size c dir
 
 findPartialsProg :: (Int -> Int -> Int -> Char -> String) -> 
+    (Int -> Int -> Char -> String) ->
     String -> Int -> Int -> Char -> Direction -> [Partial]
-findPartialsProg partialf str size 0 c dir = []
-findPartialsProg partialf str size n c dir = 
-    (maybeToList $ findaPartial partialf str n size c dir) ++ 
-        findPartialsProg partialf str size (n-1) c dir
+findPartialsProg partialf middlef str size 0 c dir = []
+findPartialsProg partialf middlef str size n c dir = 
+    (maybeToList $ findaPartial partialf middlef str n size c dir) ++ 
+        findPartialsProg partialf middlef str size (n-1) c dir
 
 findPartials :: (Int -> Int -> Int -> Char -> String) ->
+    (Int -> Int -> Char -> String) ->
     String -> Int -> Char -> Direction -> [Partial]
-findPartials partialf str size c dir = 
-    findPartialsProg partialf str size size c dir
+findPartials partialf middlef str size c dir = 
+    findPartialsProg partialf middlef str size size c dir ++
+    map (\x -> Partial { 
+            direction = dir, 
+            parts = parts x,
+            reversed = True,
+            dreversed = False,
+            n = n x 
+    }) (findPartialsProg partialf middlef (reverse str) size size c dir)
 
 findVerticalPartials :: String -> Int -> Char -> [Partial]
-findVerticalPartials str size c = findPartials verticalPartial str size c Vertical
+findVerticalPartials str size c = findPartials verticalPartial verticalMiddle str size c Vertical
 
 findHorizontalPartials :: String -> Int -> Char -> [Partial]
-findHorizontalPartials str size c = findPartials horizontalPartial str size c Horizontal
+findHorizontalPartials str size c = findPartials horizontalPartial horizontalMiddle str size c Horizontal
 
 findAllPartials :: String -> Int -> Char -> [Partial]
 findAllPartials str size c = 
@@ -251,6 +341,12 @@ findAllPartials str size c =
         findDiagonalPartials str size c 
 
 getPartialString :: Partial -> Int -> Char -> String 
+getPartialString Partial{direction = Horizontal, parts = 0, reversed = False, dreversed = d, n = num} size c =
+    horizontalMiddle (fromJust num) size c
+getPartialString Partial{direction = Vertical, parts = 0, reversed = False, dreversed = d, n = num} size c = 
+    verticalMiddle (fromJust num) size c
+getPartialString Partial{direction = Diagonal, parts = 0, reversed = False, dreversed = d, n = num} size c =
+    fromJust (diagonalMiddle d size c) 
 getPartialString Partial{direction = Horizontal, parts = p, reversed = False, dreversed = d, n = num} size c = 
     horizontalPartial (fromJust num) size p c
 getPartialString Partial{direction = Vertical, parts = p, reversed = False, dreversed = d, n = num} size c = 
@@ -261,8 +357,10 @@ getPartialString Partial{direction = dir, parts = p, reversed = True, dreversed 
     reverse $ getPartialString Partial{direction = dir, parts = p, reversed = False, dreversed = d, n = num} size c
 
 getNextPartialString :: Partial -> Int -> Char -> String
-getNextPartialString Partial{direction = dir, parts = p, reversed = r, dreversed = d, n = num} 
-    = getPartialString Partial{direction = dir, parts = (p+1), reversed = r, dreversed = d, n = num}
+getNextPartialString Partial{direction = dir, parts = 0, reversed = r, dreversed = d, n = num} size c 
+    = getPartialString Partial {direction = dir, parts = size, reversed = r, dreversed = d, n = num} size c
+getNextPartialString Partial{direction = dir, parts = p, reversed = r, dreversed = d, n = num} size c
+    = getPartialString Partial{direction = dir, parts = (p+1), reversed = r, dreversed = d, n = num} size c
 
 getNextPosition :: Int -> Char -> Partial -> (Int, Int)
 getNextPosition size c partial = 
@@ -271,7 +369,7 @@ getNextPosition size c partial =
         size c
 
 get2ndPartials :: Int -> [Partial] -> [Partial]
-get2ndPartials size = filter (\x -> parts x == (size-1)) 
+get2ndPartials size = filter (\x -> parts x == (size-1) || parts x == 0) 
 
 block :: Map.Map Int (Map.Map Int Char) -> Char -> (Int, Int)
 block grid char
