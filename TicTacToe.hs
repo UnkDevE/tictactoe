@@ -375,7 +375,7 @@ get2ndPartials size = filter (\x -> parts x == (size-1) || parts x == 0)
 block :: Map.Map Int (Map.Map Int Char) -> Char -> (Int, Int)
 block grid char
     | length(filter (==char) flatgrid) > (size-2) = 
-        head $ map (getNextPosition size char) 
+        last $ map (getNextPosition size char) 
             $ get2ndPartials size $ findAllPartials flatgrid size char
     | otherwise = head $ map (getNextPosition size char) $ findAllPartials flatgrid size char
     where flatgrid = replaceExcept (flatten grid) char
