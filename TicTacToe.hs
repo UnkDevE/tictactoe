@@ -18,7 +18,7 @@ makeEmptyGrid :: Int -> Map.Map Int (Map.Map Int Char)
 makeEmptyGrid size = Map.fromList $ zip [1..] $ makeEmptyListGrid size size
 
 insertToGrid :: Int -> Int -> Char -> Map.Map Int (Map.Map Int Char) -> Map.Map Int (Map.Map Int Char)
-insertToGrid col row char grid = Map.insert col (Map.insert row char $ fromJust $ Map.lookup col grid) grid
+insertToGrid row col char grid = Map.insert col (Map.insert row char $ fromJust $ Map.lookup col grid) grid
 
 flattenHelper :: [(Int, Map.Map Int a)] -> [(Int, a)] 
 flattenHelper [x] = Map.toList(snd x)
@@ -272,11 +272,11 @@ findaPartialProg partialf middlef str 0 n size c dir
             dreversed = False,
             n = Just n
         }:[]
-    | patternMatch (middlef n size c) str =
+    | patternMatch (middlef n size c) $ reverse str =
         Partial{
             direction = dir,
             parts = 0,
-            reversed = False,
+            reversed = True,
             dreversed = False,
             n = Just n
         }:[]
@@ -321,15 +321,8 @@ findPartials :: (Int -> Int -> Int -> Char -> String) ->
     (Int -> Int -> Char -> String) ->
     String -> Int -> Char -> Direction -> [Partial]
 findPartials partialf middlef str size c dir = 
-    findPartialsProg partialf middlef str size size c dir ++
-    map (\x -> Partial { 
-            direction = dir, 
-            parts = parts x,
-            reversed = True,
-            dreversed = False,
-            n = n x 
-    }) (findPartialsProg partialf middlef (reverse str) size size c dir)
-
+    findPartialsProg partialf middlef str size size c dir 
+    
 findVerticalPartials :: String -> Int -> Char -> [Partial]
 findVerticalPartials str size c = findPartials verticalPartial verticalMiddle str size c Vertical
 
